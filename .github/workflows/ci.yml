@@ -14,11 +14,10 @@ jobs:
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
-    # FIX: Uses the verified, industry-standard marketplace action for CUDA installation
     - name: Install CUDA Toolkit Environment
       uses: Jimver/cuda-toolkit@v0.2.36
       with:
-        cuda: '12.2'
+        cuda: '12.2.0'
         method: 'network'
         sub-packages: '["compiler", "toolkit"]'
 
@@ -38,7 +37,6 @@ jobs:
         cd build
         make -j$(nproc)
 
-    # FIX: Corrected to the valid, official GitHub action repository layout
     - name: Archive Production Shared Library Artifact
       uses: actions/upload-artifact@v4
       with:
