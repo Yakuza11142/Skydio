@@ -1,0 +1,42 @@
+name: Spatial AI Perception CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-jetson-targets:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    - name: Install CUDA Toolkit Environment
+      uses: jimmyangel/setup-cuda@v2.1.0
+      with:
+        cuda: '12.2' # Matches modern JetPack 6 installations for Orin
+
+    - name: Verify Compiler Availability
+      run: |
+        nvcc --version
+        cmake --version
+
+    - name: Configure CMake Build Matrix
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+
+    - name: Compile Aerospace Shared Object
+      run: |
+        cd build
+        make -j$(nproc)
+
+    - name: Archive Production Shared Library Artifact
+      uses: actions/artifacts/upload-artifact@v4
+      with:
+        name: libspatial_ai_perception
+        path: build/libspatial_ai_perception.so
