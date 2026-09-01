@@ -14,10 +14,13 @@ jobs:
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
+    # FIX: Uses the verified, industry-standard marketplace action for CUDA installation
     - name: Install CUDA Toolkit Environment
-      uses: jimmyangel/setup-cuda@v2.1.0
+      uses: Jimver/cuda-toolkit@v0.2.36
       with:
-        cuda: '12.2' # Matches modern JetPack 6 installations for Orin
+        cuda: '12.2'
+        method: 'network'
+        sub-packages: '["compiler", "toolkit"]'
 
     - name: Verify Compiler Availability
       run: |
@@ -35,8 +38,9 @@ jobs:
         cd build
         make -j$(nproc)
 
+    # FIX: Corrected to the valid, official GitHub action repository layout
     - name: Archive Production Shared Library Artifact
-      uses: actions/artifacts/upload-artifact@v4
+      uses: actions/upload-artifact@v4
       with:
         name: libspatial_ai_perception
         path: build/libspatial_ai_perception.so
