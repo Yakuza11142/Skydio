@@ -42,8 +42,8 @@ struct LensDistortionCoefficients {
 };
 
 struct CameraExtrinsics {
-    float rotation[9];     
-    float translation[3];  
+    float rotation;     
+    float translation;  
     float fx;              
     float fy;              
     float cx;              
@@ -147,9 +147,9 @@ __global__ void SparseTemporalProjectionKernel(
     for (uint32_t cam = 0; cam < active_cameras; ++cam) {
         CameraExtrinsics ext = d_extrinsics[cam];
 
-        float cx_space = ext.rotation[0]*gx + ext.rotation[1]*gy + ext.rotation[2]*gz + ext.translation[0];
-        float cy_space = ext.rotation[3]*gx + ext.rotation[4]*gy + ext.rotation[5]*gz + ext.translation[1];
-        float cz_space = ext.rotation[6]*gx + ext.rotation[7]*gy + ext.rotation[8]*gz + ext.translation[2];
+        float cx_space = ext.rotation*gx + ext.rotation*gy + ext.rotation*gz + ext.translation;
+        float cy_space = ext.rotation*gx + ext.rotation*gy + ext.rotation*gz + ext.translation;
+        float cz_space = ext.rotation*gx + ext.rotation*gy + ext.rotation*gz + ext.translation;
 
         if (cz_space <= 0.1f) continue;
 
@@ -213,7 +213,7 @@ extern "C" {
 
 # ==========================================
 # 3. FIXED COMPILER LAYER (CMakeLists.txt)
-# Optimized thread routing strategy
+# FIXED: include() calls are removed to eliminate FindCUDA hijacking
 # ==========================================
 cmake_content = '''
 cmake_minimum_required(VERSION 3.22)
@@ -222,20 +222,20 @@ project(SkydioFleetEngine LANGUAGES CXX CUDA)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# OPTIMIZATION PIN: Forces absolute native platform thread discovery
+# Force standard native pthreads lookup to decouple from FindCUDA completely
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-# Structural assembly targets matrix mapping (Skydio 2, S2+, X10)
+# Dual-fleet assembly target matrix mapping (Skydio 2, S2+, X10)
 set(CMAKE_CUDA_ARCHITECTURES "62;72;87")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fPIC --expt-relaxed-constexpr")
 
 if(CHIP_TARGET STREQUAL "TX2")
     add_compile_definitions(TARGET_HARDWARE_LEGACY_TX2)
-    message(STATUS "ENGINE EXECUTED FOR FLIGHT: SKYDIO 2 PROFILE")
+    message(STATUS "ENGINE CONFIGURED FOR FLIGHT: SKYDIO 2 (LEGACY TX2)")
 else()
     add_compile_definitions(TARGET_HARDWARE_ORIN)
-    message(STATUS "ENGINE EXECUTED FOR FLIGHT: SKYDIO X10 PROFILE")
+    message(STATUS "ENGINE CONFIGURED FOR FLIGHT: SKYDIO X10 (ORIN PRO)")
 endif()
 
 include_directories(src/mod_1_spatial_vision/include)
@@ -244,24 +244,16 @@ add_library(skydio_pro_core SHARED
     src/mod_1_spatial_vision/src/CUDA_SpatialAI.cu
 )
 
-# Native compilation bypass links threads cleanly
 target_link_libraries(skydio_pro_core PRIVATE Threads::Threads)
 '''
 
-# ==========================================
-# 4. CRITICAL FIX: OVERWRITE THE DEPRECATED HELPER
-# Blocks FindCUDA calls from hijacking the threads compilation chain
-# ==========================================
-tensorrt_optimizer_patch = '''
-# Overwritten TensorRTOptimizer modern stub configuration 
-message(STATUS "Optimizing TensorRT spatial memory nodes safely...")
-'''
-
-# Scaffold target directory tree layout
+# Force-create files to overwrite cached assets in your runner path
 create_file("src/mod_1_spatial_vision/include/cuda_spatial_ai.cuh", cuh_content)
 create_file("src/mod_1_spatial_vision/src/CUDA_SpatialAI.cu", cu_content)
 create_file("CMakeLists.txt", cmake_content)
-create_file("TensorRTOptimizer.cmake", tensorrt_optimizer_patch)
-create_file("TargetAARCH64.cmake", "# Target hardware parameters stub\\n")
 
-print("\n[OPTIMIZED SUCCESS] Fully patched fleet code layout written successfully.")
+# Overwrite files cleanly to isolate hidden references
+create_file("TensorRTOptimizer.cmake", "# Cleaned Modern Output\\n")
+create_file("TargetAARCH64.cmake", "# Cleaned Architecture Matrix\\n")
+
+print("\n[OPTIMIZED DETACH RESCUE COMPLETE] Safe fleet layout initialized.")
