@@ -1,4 +1,5 @@
 import ctypes
+import os
 
 class LensDistortionCoefficients(ctypes.Structure):
     _fields_ = [
@@ -31,9 +32,21 @@ class VoxelGridMetadata(ctypes.Structure):
         ("l_max", ctypes.c_float)
     ]
 
-class SpatialAIEngine:
-    def __init__(self, shared_object_path="./build/libspatial_ai_perception.so"):
-        self.lib = ctypes.CDLL(shared_object_path)
+class FleetSpatialAIEngine:
+    def __init__(self, target_drone="ORIN", binary_dir="./"):
+        """
+        Supports 'ORIN' (Skydio X10) or 'TX2' (Skydio 2).
+        Automatically resolves the appropriate hardware binary library.
+        """
+        self.target_drone = target_drone.upper()
+        binary_name = f"build_{self.target_drone}/libskydio_pro_core.so"
+        binary_path = os.path.join(binary_dir, binary_name)
+        
+        if not os.path.exists(binary_path):
+            # Fallback pathing check
+            binary_path = "./build/libskydio_pro_core.so"
+
+        self.lib = ctypes.CDLL(binary_path)
         
         self.lib.AllocateSparseAIBuffers.restype = ctypes.c_int
         self.lib.FreeSparseAIBuffers.restype = ctypes.c_int
@@ -60,7 +73,6 @@ class SpatialAIEngine:
         
         pointer_array_type = ctypes.c_void_p * active_cams
         d_mask_ptrs = pointer_array_type(*mask_gpu_pointers)
-        
         extrinsics_array_type = CameraExtrinsics * active_cams
         d_ext = extrinsics_array_type(*extrinsics_list)
         
