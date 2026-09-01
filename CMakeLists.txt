@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
-project(SkydioX10ProEngine PatchSuite CXX CUDA)
+# FIX: Removed the invalid "PatchSuite" keyword from the language declaration
+project(SkydioX10ProEngine LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
