@@ -1,0 +1,35 @@
+# Multi-stage deterministic compilation image for cross-compiling the monorepo assets safely
+FROM ubuntu:22.04 AS build_stage
+
+# Enforce clean system environmental properties without interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Provision underlying toolchain dependencies required for cross-compilation loops
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    crossbuild-essential-arm64 \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace_build
+
+# Copy the complete codebase into the container
+COPY . .
+
+# Explicitly invoke the hardware compilation script (Targeting the Orin AARCH64 platform architecture)
+RUN mkdir build && cd build && \
+    cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/RealTimeToolchain.cmake -DTARGET_HARDWARE=ORIN .. && \
+    make -j$(nproc)
+
+# Final lean distribution runtime image stage
+FROM alpine:3.18 AS runtime_stage
+
+WORKDIR /app_deployment
+
+# Harvest compiled binaries safely from the build stage layout
+COPY --from=build_stage /workspace_build/build/bin/ /app_deployment/bin/
+COPY --from=build_stage /workspace_build/mod_5_cloud_devops/ /app_deployment/devops/
+
+ENTRYPOINT ["python3", "/app_deployment/devops/automated_test_matrix.py"]
