@@ -1,4 +1,4 @@
-name: Spatial AI Perception CI
+name: Unified Skydio Fleet Perception CI
 
 on:
   push:
@@ -7,38 +7,44 @@ on:
     branches: [ main ]
 
 jobs:
-  build-jetson-targets:
+  build-fleet-targets:
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        # Dual-track compilation pipeline execution
+        include:
+          - drone: "Skydio_2_TX2"
+            cuda_ver: "11.8.0" # Safe standard toolkit fallback for legacy sm_62 targets
+            chip_flag: "TX2"
+          - drone: "Skydio_X10_Orin"
+            cuda_ver: "12.2.0" # Modern JetPack 6 standard for high-end Orin targets
+            chip_flag: "ORIN"
 
+    name: Build Profile (${{ matrix.drone }})
     steps:
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
-    - name: Install CUDA Toolkit Environment
+    - name: Install Target CUDA Toolkit Environment
       uses: Jimver/cuda-toolkit@v0.2.36
       with:
-        cuda: '12.2.0'
+        cuda: ${{ matrix.cuda_ver }}
         method: 'network'
         sub-packages: '["compiler", "toolkit"]'
 
-    - name: Verify Compiler Availability
+    - name: Configure Cross-Compilation Build Matrix
       run: |
-        nvcc --version
-        cmake --version
+        mkdir -p build_${{ matrix.chip_flag }}
+        cd build_${{ matrix.chip_flag }}
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCHIP_TARGET=${{ matrix.chip_flag }}
 
-    - name: Configure CMake Build Matrix
+    - name: Compile Hardware Shared Object Library
       run: |
-        mkdir build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release
-
-    - name: Compile Aerospace Shared Object
-      run: |
-        cd build
+        cd build_${{ matrix.chip_flag }}
         make -j$(nproc)
 
-    - name: Archive Production Shared Library Artifact
+    - name: Archive Drone Core Binary Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: libspatial_ai_perception
-        path: build/libspatial_ai_perception.so
+        name: libskydio_core_${{ matrix.chip_flag }}
+        path: build_${{ matrix.chip_flag }}/libskydio_pro_core.so
